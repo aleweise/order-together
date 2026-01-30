@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { getSessionByCode, joinSession } from '../services/supabase';
-import { authClient } from '../services/auth';
+
 import { useOrder } from '../context/OrderContext';
 import { ArrowLeft } from 'lucide-react';
 
@@ -27,14 +27,6 @@ export const JoinOrder = () => {
 
         setLoading(true);
         try {
-            // Attempt anonymous sign in if not already signed in?
-            // Simplest is to just call it, it handles session if valid
-            const { data: sessionData, error: authError } = await authClient.signIn.anonymous();
-
-            if (authError) {
-                throw new Error("Authentication failed: " + authError.message);
-            }
-
             const cleanCode = code.trim().toUpperCase();
             // 1. Verify session exists and is open
             const session = await getSessionByCode(cleanCode);

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrder } from '../context/OrderContext';
 import { getSessionByCode } from '../services/supabase';
-import { authClient } from '../services/auth';
+
 import { Button } from '../components/Button';
 import { ParticipantList } from '../components/ParticipantList';
 import { Copy, Check, ArrowRight, ArrowLeft } from 'lucide-react';
@@ -26,28 +26,7 @@ export const ShareCode = () => {
             // Otherwise fetch it
             try {
                 setLoading(true);
-                // Try fetching directly. If it fails due to auth (401/403 or empty), we might need to sign in.
-                // But getSessionByCode does the fetch. 
-                // Let's force an auth check if we get an error or maybe just preemptively.
-                // A better approach: check if we are authenticated?
-                // The neonFetch will error if 401.
-
-                let session = null;
-                try {
-                    session = await getSessionByCode(code);
-                } catch (firstErr) {
-                    // If error is related to auth, try to sign in
-                    if (firstErr.message && (firstErr.message.includes('401') || firstErr.message.includes('403') || firstErr.message.includes('credentials'))) {
-                        const { error: authError } = await authClient.signIn.anonymous();
-                        if (!authError) {
-                            session = await getSessionByCode(code);
-                        } else {
-                            throw firstErr; // rethrow original if auth fails
-                        }
-                    } else {
-                        throw firstErr;
-                    }
-                }
+                const session = await getSessionByCode(code);
 
                 if (session) {
                     setSessionId(session.id);

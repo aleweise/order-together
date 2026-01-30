@@ -4,7 +4,7 @@ import { Button } from '../components/Button';
 import { generateCode } from '../utils/generateCode';
 import { createSession, getRestaurants } from '../services/supabase';
 import { Header } from '../components/Header';
-import { authClient } from '../services/auth';
+
 import { useOrder } from '../context/OrderContext';
 import { ArrowLeft } from 'lucide-react';
 
@@ -17,35 +17,22 @@ export const CreateOrder = () => {
     const { setSessionId, setCurrentUser } = useOrder();
     const navigate = useNavigate();
 
-    // Authenticate and fetch restaurants on mount
+    // Fetch restaurants on mount
     useEffect(() => {
-        const init = async () => {
+        const fetchRestaurants = async () => {
             try {
-                // Ensure we have a session/token first
-                let { data: sessionData } = await authClient.getSession();
-
-                if (!sessionData) {
-                    const { data: newSession, error } = await authClient.signIn.anonymous();
-                    if (error) throw error;
-                    sessionData = newSession;
-                }
-
-                // Now fetch restaurants (neonFetch will pick up the token from localStorage/client)
-                // Note: We might need a small delay or ensure neonFetch gets the updated token 
-                // if it relies on localStorage which authClient updates.
-
                 const data = await getRestaurants();
                 if (data) {
                     setRestaurantsList(data);
                 }
             } catch (error) {
-                console.error("Failed to initialize or load restaurants", error);
+                console.error("Failed to load restaurants", error);
             } finally {
                 setLoadingRestaurants(false);
             }
         };
 
-        init();
+        fetchRestaurants();
     }, []);
 
     const handleCreate = async (e) => {
@@ -54,15 +41,6 @@ export const CreateOrder = () => {
 
         setLoading(true);
         try {
-            // Check session again (should be there)
-            const { data: sessionData, error: authError } = await authClient.getSession();
-
-            if (authError || !sessionData) {
-                // Retry auth if missing
-                const { error: retryError } = await authClient.signIn.anonymous();
-                if (retryError) throw new Error("Auth failed: " + retryError.message);
-            }
-
             const code = generateCode();
             const selectedRestaurant = restaurantsList.find(r => r.id === restaurant);
             const restaurantName = selectedRestaurant?.name || '';
@@ -75,7 +53,7 @@ export const CreateOrder = () => {
             navigate(`/share/${session.code}`);
         } catch (error) {
             console.error(error);
-            alert('Error al crear la sesión: ' + (error.message || 'Verifica tu conexión y autenticación.'));
+            alert('Error al crear la sesión: ' + (error.message || 'Verifica tu conexión.'));
         } finally {
             setLoading(false);
         }
