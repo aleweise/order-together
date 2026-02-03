@@ -1,78 +1,54 @@
-import { readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
-import pg from 'pg';
+import { dirname, join } from 'path';
 
-const { Client } = pg;
+// Load env vars
 const __dirname = dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: join(__dirname, '../.env') });
 
-// Connection string from Neon creation
-const CONNECTION_STRING = "postgresql://neondb_owner:npg_iJCK9sOPg2Vj@ep-sweet-bonus-afwc255d-pooler.c-2.us-west-2.aws.neon.tech/neondb?channel_binding=require&sslmode=require";
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
 
-async function seed() {
-    const client = new Client({
-        connectionString: CONNECTION_STRING,
-    });
-
-    try {
-        await client.connect();
-
-        // Read JSON
-        const jsonPath = resolve(__dirname, '../../restaurants.json');
-        const raw = readFileSync(jsonPath, 'utf-8');
-        const data = JSON.parse(raw);
-
-        console.log(`Initialized seed for ${data.establecimientos.length} restaurants...`);
-
-        for (const establishment of data.establecimientos) {
-            console.log(`Processing: ${establishment.nombre}`);
-
-            // 1. Insert Restaurant
-            const category = Array.isArray(establishment.tipo_establecimiento)
-                ? establishment.tipo_establecimiento[0]
-                : establishment.tipo_establecimiento;
-
-            const res = await client.query(`
-                INSERT INTO restaurants (name, address, phone, category, rating, description)
-                VALUES ($1, $2, $3, $4, $5, $6)
-                RETURNING id
-            `, [
-                establishment.nombre,
-                establishment.direccion,
-                establishment.telefono,
-                category,
-                establishment.rating,
-                `Destacados: ${establishment.destacados.join(', ')}`
-            ]);
-
-            const restaurantId = res.rows[0].id;
-            console.log(`  -> Created Restaurant ID: ${restaurantId}`);
-
-            // 2. Insert Menu Items
-            const getRandomPrice = () => Math.floor(Math.random() * (60 - 25 + 1) + 25);
-
-            for (const itemName of establishment.destacados) {
-                await client.query(`
-                    INSERT INTO menu_items (restaurant_id, name, price, category, description)
-                    VALUES ($1, $2, $3, $4, $5)
-                `, [
-                    restaurantId,
-                    itemName,
-                    getRandomPrice(),
-                    'Destacado',
-                    'Plato recomendado de la casa'
-                ]);
-            }
-            console.log(`  -> Added ${establishment.destacados.length} menu items.`);
-        }
-
-        console.log("\n✅ Seeding Complete!");
-
-    } catch (e) {
-        console.error("Seed Error:", e);
-    } finally {
-        await client.end();
-    }
+if (!supabaseUrl || !supabaseKey) {
+    console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY');
+    process.exit(1);
 }
 
-seed();
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+const restaurants = [
+    { name: 'Acai Bar Superfood', logo_url: 'https://images.unsplash.com/photo-1590301157890-4810ed352733?w=100&h=100&fit=crop' },
+    { name: 'Bistro La Casona', logo_url: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=100&h=100&fit=crop' },
+    { name: 'As de Copas', logo_url: 'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=100&h=100&fit=crop' },
+    { name: 'Burger King', logo_url: 'https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=100&h=100&fit=crop' },
+    { name: 'Sbarro', logo_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=100&h=100&fit=crop' },
+    { name: 'Subway', logo_url: 'https://images.unsplash.com/photo-1509722747741-0015928ea6a8?w=100&h=100&fit=crop' },
+    { name: 'Dumbo', logo_url: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=100&h=100&fit=crop' },
+    { name: 'Pollos Copacabana', logo_url: 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=100&h=100&fit=crop' },
+    { name: 'Jardin de Asia', logo_url: 'https://images.unsplash.com/photo-1579027989536-b7b1f875659b?w=100&h=100&fit=crop' },
+    { name: 'El Hornito', logo_url: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=100&h=100&fit=crop' },
+    { name: 'Tanta', logo_url: 'https://images.unsplash.com/photo-1555126634-323283e090fa?w=100&h=100&fit=crop' },
+    { name: 'Factory Grill', logo_url: 'https://images.unsplash.com/photo-1544025162-d76690b67f11?w=100&h=100&fit=crop' }
+];
+
+async function seedRestaurants() {
+    console.log('Seeding restaurants...');
+
+    for (const r of restaurants) {
+        const { data, error } = await supabase
+            .from('restaurants')
+            .upsert(r, { onConflict: 'name' })
+            .select();
+
+        if (error) {
+            console.error(`Error inserting ${r.name}:`, error);
+        } else {
+            console.log(`Inserted/Updated: ${r.name}`);
+        }
+    }
+
+    console.log('Done!');
+}
+
+seedRestaurants();
